@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSort AI | Smart Segregation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Simulates the 7-inch Touchscreen (1024x600) */
+        .kiosk-frame {
+            width: 1024px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Modern gradient scan line */
+        .scan-laser {
+            background: linear-gradient(to bottom, transparent, rgba(16, 185, 129, 0.5));
+            border-bottom: 2px solid #10b981;
+            animation: scan 1.5s ease-in-out infinite;
+        }
+        @keyframes scan {
+            0% { top: -10%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 110%; opacity: 0; }
+        }
+
+        /* Soft fade transitions */
+        .fade-enter { opacity: 0; transform: translateY(10px); }
+        .fade-enter-active { opacity: 1; transform: translateY(0); transition: all 0.4s ease-out; }
+
+        /* Liquid Animation for Admin Gauges */
+        .liquid-fill { transition: height 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-600 h-screen flex flex-col overflow-hidden selection:bg-emerald-100 selection:text-emerald-700">
+
+    <div class="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md border border-slate-200 p-1.5 rounded-full shadow-lg flex gap-1">
+        <button onclick="switchView('kiosk')" id="btn-kiosk" class="px-4 py-2 rounded-full text-xs font-semibold bg-slate-900 text-white shadow-md transition-all flex items-center gap-2">
+            <i class="fa-solid fa-desktop"></i> Kiosk
+        </button>
+        <button onclick="switchView('admin')" id="btn-admin" class="px-4 py-2 rounded-full text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-2">
+            <i class="fa-solid fa-chart-line"></i> Dashboard
+        </button>
+    </div>
+
+    <div id="view-kiosk" class="flex-1 flex items-center justify-center p-6 transition-all duration-500">
+        
+        <div class="kiosk-frame bg-white rounded-2xl relative flex flex-col border border-slate-100">
+            
+            <header class="h-20 px-8 flex items-center justify-between border-b border-slate-50 bg-white z-20">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl shadow-sm">
+                        <i class="fa-solid fa-recycle"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-900 text-lg tracking-tight leading-tight">EcoSort AI</h1>
+                        <p class="text-xs text-slate-400 font-medium">Smart Waste Management</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="flex flex-col items-end">
+                        <span class="text-xs font-bold text-slate-700">BIN #042</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="relative flex h-2 w-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span class="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Online</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="flex-1 relative bg-white overflow-hidden">
+
+                <div id="state-idle" class="absolute inset-0 flex flex-col items-center justify-center fade-enter-active">
+                    <div class="relative mb-10 group">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                        <div class="relative w-40 h-40 bg-white rounded-full flex items-center justify-center border border-slate-50 shadow-sm">
+                            <i class="fa-solid fa-arrow-down text-5xl text-emerald-500 animate-bounce mt-2"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-4xl font-bold text-slate-900 mb-3 tracking-tight">Ready to Recycle?</h2>
+                    <p class="text-lg text-slate-400 mb-12">Please place your item in the tray to begin.</p>
+                    
+                    <div class="flex gap-3">
+                        <button onclick="runSimulation('clean')" class="px-5 py-2.5 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 text-slate-600 hover:text-emerald-700 rounded-lg text-sm font-medium transition-all">
+                            Simulate: Clean
+                        </button>
+                        <button onclick="runSimulation('mixed')" class="px-5 py-2.5 bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 text-slate-600 hover:text-amber-700 rounded-lg text-sm font-medium transition-all">
+                            Simulate: Mixed
+                        </button>
+                    </div>
+                </div>
+
+                <div id="state-scanning" class="hidden absolute inset-0 bg-slate-50 flex flex-col items-center justify-center">
+                    <div class="relative w-[600px] h-[340px] bg-slate-200 rounded-2xl overflow-hidden shadow-inner border border-slate-200">
+                        <img src="https://images.unsplash.com/photo-1595278069441-2cf29f8005a4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" class="w-full h-full object-cover opacity-90 mix-blend-multiply">
+                        <div class="scan-laser absolute inset-x-0 h-24 z-10"></div>
+                        <div class="absolute top-4 left-4 bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-md text-xs font-mono border border-white/10">
+                            CAM_01 • 30FPS
+                        </div>
+                        <div class="absolute top-4 right-4 text-emerald-400 animate-pulse">
+                            <i class="fa-solid fa-record-vinyl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-sm border border-slate-100">
+                        <i class="fa-solid fa-circle-notch fa-spin text-emerald-500"></i>
+                        <span class="font-semibold text-slate-700">Analyzing composition...</span>
+                    </div>
+                </div>
+
+                <div id="state-clean" class="hidden absolute inset-0 bg-emerald-50/50 flex flex-col items-center justify-center">
+                    <div class="w-32 h-32 bg-emerald-100 rounded-full flex items-center justify-center mb-6 shadow-sm ring-8 ring-emerald-50">
+                        <i class="fa-solid fa-check text-5xl text-emerald-600"></i>
+                    </div>
+                    <h2 class="text-4xl font-bold text-slate-900 mb-2">Clean Waste Detected</h2>
+                    <p class="text-emerald-600 font-medium text-lg mb-10">Sorting into <span class="font-bold">Organic Bin</span></p>
+                    
+                    <div class="bg-white p-6 rounded-xl border border-emerald-100 shadow-lg shadow-emerald-100/50 max-w-sm w-full">
+                        <div class="flex justify-between items-center mb-4 pb-4 border-b border-slate-50">
+                            <span class="text-sm text-slate-400">Confidence Score</span>
+                            <span class="text-sm font-bold text-emerald-600">98.4%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div class="bg-emerald-500 w-[98%] h-full rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="state-mixed" class="hidden absolute inset-0 bg-white flex">
+                    <div class="w-5/12 bg-slate-50 border-r border-slate-100 p-8 flex flex-col justify-center">
+                        <div class="rounded-xl overflow-hidden shadow-sm border border-slate-200 relative mb-6">
+                            <img src="https://images.unsplash.com/photo-1605600659873-d808a13a4d2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" class="w-full h-48 object-cover">
+                            <div class="absolute bottom-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded">
+                                MIXED CONTENT
+                            </div>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-800 mb-2">Action Required</h3>
+                        <p class="text-sm text-slate-500 leading-relaxed">
+                            Our sensors detected non-segregated mixed waste. A small processing fee is required to accept this item.
+                        </p>
+                    </div>
+
+                    <div class="w-7/12 p-12 flex flex-col justify-center">
+                        <div class="flex justify-between items-end mb-8">
+                            <div>
+                                <p class="text-xs font-bold text-amber-600 uppercase tracking-wide mb-1">Processing Fee</p>
+                                <h2 class="text-4xl font-bold text-slate-900">₹ 10.00</h2>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-400">Time Remaining</p>
+                                <p class="text-xl font-mono text-slate-700 font-medium" id="timer">00:45</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 rounded-2xl p-6 border border-slate-100 flex items-center gap-6 mb-8">
+                            <div class="bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                                <div class="w-24 h-24 bg-slate-900 pattern-dots flex items-center justify-center text-slate-500 text-[10px]">
+                                    <i class="fa-solid fa-qrcode text-4xl text-white"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 mb-1">Scan to Pay</h4>
+                                <p class="text-xs text-slate-400 mb-3">Accepted Payment Methods</p>
+                                <div class="flex gap-2 opacity-60">
+                                    <i class="fa-brands fa-google-pay text-xl"></i>
+                                    <i class="fa-brands fa-amazon-pay text-xl"></i>
+                                    <i class="fa-solid fa-wallet text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="completePayment()" class="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-xl font-medium transition-all shadow-lg shadow-slate-200">
+                            I've Completed Payment
+                        </button>
+                    </div>
+                </div>
+
+            </main>
+
+            <footer class="h-14 bg-white border-t border-slate-100 flex items-center justify-between px-8 text-sm text-slate-500">
+                <div class="flex gap-8">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        <span>Organic: <span class="font-semibold text-slate-700">45% Full</span></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                        <span>Recyclable: <span class="font-semibold text-slate-700">12% Full</span></span>
+                    </div>
+                </div>
+                <div>System v2.1</div>
+            </footer>
+        </div>
+    </div>
+
+
+    <div id="view-admin" class="hidden absolute inset-0 bg-slate-50 overflow-hidden flex">
+        
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-100">
+                <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center mr-3 shadow-md shadow-emerald-200">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <span class="font-bold text-slate-800 text-lg tracking-tight">EcoSort <span class="text-emerald-600">Admin</span></span>
+            </div>
+
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-2">Monitoring</p>
+                
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 bg-slate-900 text-white rounded-lg font-medium shadow-md shadow-slate-200 transition-all">
+                    <i class="fa-solid fa-gauge-high w-5"></i> Dashboard
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-emerald-600 rounded-lg font-medium transition-colors group">
+                    <i class="fa-solid fa-trash-can w-5 group-hover:text-emerald-500 transition-colors"></i> Bin Status
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-emerald-600 rounded-lg font-medium transition-colors group">
+                    <i class="fa-solid fa-video w-5 group-hover:text-emerald-500 transition-colors"></i> Live Camera
+                </a>
+
+                <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6">Data & Logs</p>
+
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-emerald-600 rounded-lg font-medium transition-colors group">
+                    <i class="fa-solid fa-table-list w-5 group-hover:text-emerald-500 transition-colors"></i> Sorting Logs
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-emerald-600 rounded-lg font-medium transition-colors group">
+                    <i class="fa-solid fa-indian-rupee-sign w-5 group-hover:text-emerald-500 transition-colors"></i> Revenue
+                </a>
+            </nav>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-500">RPi 4 System Status</span>
+                    <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+                <div class="space-y-2">
+                    <div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>CPU Load</span>
+                            <span>12%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 12%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Temp</span>
+                            <span>42°C</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: 40%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto bg-slate-50/50 p-8">
+            <header class="flex justify-between items-end mb-8">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Overview</h1>
+                    <p class="text-sm text-slate-500 mt-1">Real-time telemetry from <span class="font-semibold text-slate-700">Kiosk_01</span></p>
+                </div>
+                <div class="flex gap-3">
+                    <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm">
+                        <i class="fa-solid fa-rotate mr-2"></i> Refresh
+                    </button>
+                    <button class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">
+                        <i class="fa-solid fa-file-export mr-2"></i> Export CSV
+                    </button>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+                            <i class="fa-solid fa-weight-hanging text-lg"></i>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">+2.4%</span>
+                    </div>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wide">Total Waste</h3>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">1,248 <span class="text-sm font-medium text-slate-400">kg</span></p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+                            <i class="fa-solid fa-indian-rupee-sign text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wide">Revenue (Fees)</h3>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">₹ 4,350</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <i class="fa-solid fa-check-double text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wide">AI Accuracy</h3>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">98.2 <span class="text-sm font-medium text-slate-400">%</span></p>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+                    <div class="absolute right-0 top-0 w-24 h-24 bg-red-50 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
+                    <div class="flex justify-between items-start mb-4 relative z-10">
+                        <div class="p-2.5 bg-red-50 text-red-600 rounded-lg">
+                            <i class="fa-solid fa-bell text-lg"></i>
+                        </div>
+                        <span class="relative flex h-3 w-3">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                    </div>
+                    <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wide relative z-10">System Alerts</h3>
+                    <p class="text-lg font-bold text-slate-900 mt-1 relative z-10">Bin 2 Near Full</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-8">
+                <div class="col-span-12 lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                    <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-trash-can text-slate-400"></i> Live Bin Levels
+                    </h3>
+                    
+                    <div class="flex justify-center gap-8 h-64">
+                        <div class="flex flex-col items-center w-24">
+                            <div class="relative flex-1 w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                                <div class="absolute bottom-0 left-0 right-0 bg-emerald-500 liquid-fill opacity-90" style="height: 45%;"></div>
+                                <div class="absolute top-1/4 w-full border-t border-slate-300/50 border-dashed"></div>
+                                <div class="absolute top-2/4 w-full border-t border-slate-300/50 border-dashed"></div>
+                                <div class="absolute top-3/4 w-full border-t border-slate-300/50 border-dashed"></div>
+                            </div>
+                            <div class="mt-4 text-center">
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Organic</p>
+                                <p class="text-xl font-bold text-emerald-600">45%</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-center w-24">
+                            <div class="relative flex-1 w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                                <div class="absolute bottom-0 left-0 right-0 bg-amber-500 liquid-fill opacity-90" style="height: 88%;"></div>
+                                <div class="absolute inset-0 bg-red-500/10 animate-pulse"></div>
+                            </div>
+                            <div class="mt-4 text-center">
+                                <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Recycle</p>
+                                <p class="text-xl font-bold text-amber-600">88%</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-3 bg-amber-50 rounded-lg border border-amber-100 flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
+                        <div>
+                            <p class="text-xs font-bold text-amber-700">Action Needed</p>
+                            <p class="text-xs text-amber-600">Bin 2 is reaching capacity. Schedule pickup.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-span-12 lg:col-span-8 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-6 border-b border-slate-50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800">Recent Activity Logs</h3>
+                        <div class="flex gap-2">
+                             <input type="text" placeholder="Search logs..." class="text-xs bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50/50 text-slate-500 font-semibold border-b border-slate-100">
+                                <tr>
+                                    <th class="px-6 py-4">Timestamp</th>
+                                    <th class="px-6 py-4">Detected Item</th>
+                                    <th class="px-6 py-4">Est. Weight</th>
+                                    <th class="px-6 py-4">Class</th>
+                                    <th class="px-6 py-4">Fee Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <tr class="hover:bg-slate-50 transition-colors group">
+                                    <td class="px-6 py-4 text-slate-500">10:42 AM</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <i class="fa-solid fa-bottle-water"></i>
+                                            </div>
+                                            <span class="font-medium text-slate-700">Plastic Bottle</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-500">45g</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">Recyclable</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-400">-</td>
+                                </tr>
+
+                                <tr class="hover:bg-slate-50 transition-colors group">
+                                    <td class="px-6 py-4 text-slate-500">10:38 AM</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <i class="fa-solid fa-box-open"></i>
+                                            </div>
+                                            <span class="font-medium text-slate-700">Mixed Packaging</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-500">120g</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">Mixed Waste</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-bold text-emerald-600">₹ 10.00</span>
+                                        <span class="text-[10px] text-slate-400 ml-1">(UPI)</span>
+                                    </td>
+                                </tr>
+
+                                <tr class="hover:bg-slate-50 transition-colors group">
+                                    <td class="px-6 py-4 text-slate-500">10:35 AM</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <i class="fa-solid fa-apple-whole"></i>
+                                            </div>
+                                            <span class="font-medium text-slate-700">Apple Core</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-500">30g</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Organic</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-400">-</td>
+                                </tr>
+                                
+                                 <tr class="hover:bg-slate-50 transition-colors group">
+                                    <td class="px-6 py-4 text-slate-500">10:31 AM</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <i class="fa-solid fa-newspaper"></i>
+                                            </div>
+                                            <span class="font-medium text-slate-700">Newspaper</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-500">85g</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">Recyclable</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-400">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- View Switching Logic ---
+        const kioskView = document.getElementById('view-kiosk');
+        const adminView = document.getElementById('view-admin');
+        const btnKiosk = document.getElementById('btn-kiosk');
+        const btnAdmin = document.getElementById('btn-admin');
+
+        function switchView(view) {
+            if (view === 'kiosk') {
+                kioskView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                kioskView.classList.add('flex');
+                adminView.classList.remove('flex'); // Remove flex when hiding admin
+                
+                // Button Styling
+                btnKiosk.className = "px-4 py-2 rounded-full text-xs font-semibold bg-slate-900 text-white shadow-md transition-all flex items-center gap-2";
+                btnAdmin.className = "px-4 py-2 rounded-full text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-2";
+            } else {
+                kioskView.classList.add('hidden');
+                kioskView.classList.remove('flex');
+                adminView.classList.remove('hidden');
+                adminView.classList.add('flex'); // Add flex when showing admin
+
+                // Button Styling
+                btnAdmin.className = "px-4 py-2 rounded-full text-xs font-semibold bg-slate-900 text-white shadow-md transition-all flex items-center gap-2";
+                btnKiosk.className = "px-4 py-2 rounded-full text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-2";
+            }
+        }
+
+        // --- Kiosk Simulation Logic ---
+        function runSimulation(type) {
+            const idle = document.getElementById('state-idle');
+            const scanning = document.getElementById('state-scanning');
+            const clean = document.getElementById('state-clean');
+            const mixed = document.getElementById('state-mixed');
+
+            // 1. Scanning
+            idle.classList.add('hidden');
+            scanning.classList.remove('hidden');
+            scanning.classList.add('flex');
+
+            setTimeout(() => {
+                scanning.classList.add('hidden');
+                scanning.classList.remove('flex');
+
+                if (type === 'clean') {
+                    // 2a. Clean Result
+                    clean.classList.remove('hidden');
+                    clean.classList.add('flex');
+                    setTimeout(() => {
+                        clean.classList.add('hidden');
+                        clean.classList.remove('flex');
+                        idle.classList.remove('hidden');
+                    }, 3500);
+                } else {
+                    // 2b. Mixed Result
+                    mixed.classList.remove('hidden');
+                    mixed.classList.add('flex');
+                }
+            }, 2500);
+        }
+
+        function completePayment() {
+            document.getElementById('state-mixed').classList.add('hidden');
+            document.getElementById('state-mixed').classList.remove('flex');
+            document.getElementById('state-idle').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
